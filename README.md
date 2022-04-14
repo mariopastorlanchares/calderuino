@@ -7,8 +7,8 @@ Calderuino is a project to monitor and manage multiple boilers via a web applica
 
 ## Installation
 
-Create a secrets.h header file for arduino project in /calderuino/secrets.h to store all your passwords for wifi and
-firebase connections.
+Create a **secrets.h** header file for arduino project in **/calderuino/** folder (the folder where calderuino.ino is
+placed) to store all your passwords for wifi and firebase connections.
 
 Copy this contents:
 
