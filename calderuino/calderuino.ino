@@ -1,4 +1,3 @@
-// #include <WiFi.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 // #include <ESP8266WiFi.h>
@@ -10,29 +9,62 @@
 #include <ESP8266WiFi.h>
 #endif
 
-#include <Firebase_ESP_Client.h>
+// Sounds library
+#include <max6675.h>
 
+// FIREBASE
+#include <Firebase_ESP_Client.h>
 // Provide the token generation process info.
 #include <addons/TokenHelper.h>
 
-//Define the Firebase Data object
+// Define the Firebase Data object
 FirebaseData fbdo;
-
-//Define the FirebaseAuth data for authentication data
+// Define the FirebaseAuth data for authentication data
 FirebaseAuth auth;
-
 // Define the FirebaseConfig data for config data
 FirebaseConfig config;
 
-char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+// Json
+FirebaseJson json;       // or constructor with contents e.g. FirebaseJson json("{\"a\":true}");
 
-// Define NTP Client to get time
+
+// NTP Clock
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
+// DEVICES
+
+// High temp sounds
+// Common pins
+int ktcCS = 13;  //D7
+int ktcCLK = 14; //D5
+// Sound 1
+int ktc1SO = 12; //D6
+MAX6675 ktc1(ktcCLK, ktcCS, ktc1SO);
+// Sound 2
+int ktc2S0 = 15; //D8
+MAX6675 ktc2(ktcCLK, ktcCS, ktc2S0);
+
+// Ambient sound
+int LM35 = A0;
+//RELAY 1
+int relay1 = 5; //D1
+//RELAY 2
+int relay2 = 4; //D2
+
+// VARIABLES
+float ambient = 0;
+// Charcoal heater
+float heater_char = 0;
+// Diesel Heater
+float heater_gas = 0;
+
+int lastMin = 0;
+
+
+
 void setup() {
   Serial.begin(9600);
-  Serial.print("Hola ");
   // WiFi
   WiFi.begin( SECRET_SSID, SECRET_PASS);
 
@@ -68,7 +100,7 @@ void setup() {
   Firebase.setDoubleDigits(5);
 
   //Optional, set number of error retry
-  // Firebase.RTDB.setMaxRetry(&fbdo, 3);
+  Firebase.RTDB.setMaxRetry(&fbdo, 3);
 
   //Optional, set number of error resumable queues
   // Firebase.RTDB.setMaxErrorQueue(&fbdo, 30);
@@ -77,14 +109,81 @@ void setup() {
   //This option allows get and delete functions (PUT and DELETE HTTP requests) works for
   //device connected behind the Firewall that allows only GET and POST requests.
   // Firebase.RTDB.enableClassicRequest(&fbdo, true);
+
+  // Relays
+  pinMode(relay1, OUTPUT);
+  pinMode(relay2, OUTPUT);
 }
 
 void loop() {
   timeClient.update();
+
+  // SOUND
+  // Ambient sound
+  float ambientReading = analogRead(LM35); //Analog pin reading output voltage by Lm35
+  ambient = ambientReading * 0.259; //Finding the true centigrate/celsius temperature
+  Serial.print("AMBIENT TEMP = ");
+  Serial.println(ambient); //Print centigrade temperature on Serial Monitor
+
+  // High Temp Sounds
+  heater_char = ktc1.readCelsius();
+  heater_gas = ktc2.readCelsius();
+
+
+  // Time
   Serial.print(timeClient.getEpochTime());
   Serial.print(" ");
   Serial.println(timeClient.getMinutes());
-  Serial.printf("Set int... %s\n", Firebase.RTDB.setInt(&fbdo, F("time"), timeClient.getEpochTime()) ? "ok" : fbdo.errorReason().c_str());
-  // Serial.printf("Set int... %s\n", Firebase.RTDB.setInt(&fbdo, F("/test/int"), 1) ? "ok" : fbdo.errorReason().c_str());
+
+  // RELAYS
+  boolean relay1_val = digitalRead(relay1);
+  if (Firebase.RTDB.getInt(&fbdo, "current/relay1_signal")) {
+    if (fbdo.dataTypeEnum() == fb_esp_rtdb_data_type_integer) {
+      Serial.print( "Relay 1 signal :");
+      Serial.println(fbdo.to<int>());
+      digitalWrite(relay1, fbdo.to<int>());
+    }
+  } else {
+    Serial.println(fbdo.errorReason());
+    if (fbdo.errorReason() == "path not exist") {
+      Serial.printf("Set relay signal... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/relay1_signal"), relay1_val) ? "ok" : fbdo.errorReason().c_str());
+    }
+  }
+
+  boolean relay2_val = digitalRead(relay2);
+  if (Firebase.RTDB.getInt(&fbdo, "current/relay2_signal")) {
+    if (fbdo.dataTypeEnum() == fb_esp_rtdb_data_type_integer) {
+      Serial.print( "Relay 2 signal :");
+      Serial.println(fbdo.to<int>());
+      digitalWrite(relay2, fbdo.to<int>());
+    }
+  } else {
+    Serial.println(fbdo.errorReason());
+    if (fbdo.errorReason() == "path not exist") {
+      Serial.printf("Set relay signal... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/relay2_signal"), relay2_val) ? "ok" : fbdo.errorReason().c_str());
+    }
+  }
+
+
+  // Set values in firebase
+  Serial.printf("Set time... %s\n", Firebase.RTDB.setInt(&fbdo, F("current/time"), timeClient.getEpochTime()) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set ambient... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/ambient"), ambient) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set charcoal heater... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/charcoal"), heater_char) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set diesel heater... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/diesel"), heater_gas) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set relay 1 current... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/relay1"),  digitalRead(relay1)) ? "ok" : fbdo.errorReason().c_str());
+  Serial.printf("Set relay 2 current... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/relay2"),  digitalRead(relay2)) ? "ok" : fbdo.errorReason().c_str());
+
+  // HISTORY every 10 minutes
+  long timestamp = timeClient.getEpochTime();
+  int currentMin = timeClient.getMinutes();
+  if (currentMin % 10 == 0 && currentMin != lastMin) {
+    int lastMin = currentMin;
+    json.add("time", timestamp);
+    json.add("ambient", ambient);
+    json.add("charcoal", heater_char);
+    json.add("diesel", heater_gas);
+    Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, "/history/" + (String) timestamp, &json) ? "ok" : fbdo.errorReason().c_str());
+  }
+
   delay(10000);
 }

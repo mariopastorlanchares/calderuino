@@ -27,3 +27,8 @@ Copy this contents in secrets.h:
 #define USER_EMAIL "*********@****.com"
 #define USER_PASSWORD "***********"
  ```
+
+### Libraries
+HIGH TEMP SOUNDS - https://github.com/adafruit/MAX6675-library
+
+FIREBASE - https://github.com/mobizt/Firebase-ESP-Client
