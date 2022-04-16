@@ -59,7 +59,7 @@ float heater_char = 0;
 // Diesel Heater
 float heater_gas = 0;
 
-int lastMin = 0;
+int lastMin = -1;
 
 
 
@@ -176,8 +176,9 @@ void loop() {
   // HISTORY every 10 minutes
   long timestamp = timeClient.getEpochTime();
   int currentMin = timeClient.getMinutes();
+  // Chante 10 for the min frequency you want your history to update
   if (currentMin % 10 == 0 && currentMin != lastMin) {
-    int lastMin = currentMin;
+    lastMin = currentMin;
     json.add("time", timestamp);
     json.add("ambient", ambient);
     json.add("charcoal", heater_char);

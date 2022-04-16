@@ -32,3 +32,5 @@ Copy this contents in secrets.h:
 HIGH TEMP SOUNDS - https://github.com/adafruit/MAX6675-library
 
 FIREBASE - https://github.com/mobizt/Firebase-ESP-Client
+
+## Schemas
