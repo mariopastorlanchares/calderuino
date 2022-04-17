@@ -102,6 +102,9 @@ void setup() {
   //Optional, set number of error retry
   Firebase.RTDB.setMaxRetry(&fbdo, 3);
 
+  /* Assign the required callback functions */
+  fbdo.setExternalClientCallbacks(tcpConnectionRequestCallback, networkConnection, networkStatusRequestCallback);
+
   //Optional, set number of error resumable queues
   // Firebase.RTDB.setMaxErrorQueue(&fbdo, 30);
 
@@ -166,25 +169,77 @@ void loop() {
 
 
   // Set values in firebase
-  Serial.printf("Set time... %s\n", Firebase.RTDB.setInt(&fbdo, F("current/time"), timeClient.getEpochTime()) ? "ok" : fbdo.errorReason().c_str());
-  Serial.printf("Set ambient... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/ambient"), ambient) ? "ok" : fbdo.errorReason().c_str());
-  Serial.printf("Set charcoal heater... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/charcoal"), heater_char) ? "ok" : fbdo.errorReason().c_str());
-  Serial.printf("Set diesel heater... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/diesel"), heater_gas) ? "ok" : fbdo.errorReason().c_str());
-  Serial.printf("Set relay 1 current... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/relay1"),  digitalRead(relay1)) ? "ok" : fbdo.errorReason().c_str());
-  Serial.printf("Set relay 2 current... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/relay2"),  digitalRead(relay2)) ? "ok" : fbdo.errorReason().c_str());
+  if (Firebase.ready()) {
+    Serial.printf("Set time... %s\n", Firebase.RTDB.setInt(&fbdo, F("current/time"), timeClient.getEpochTime()) ? "ok" : fbdo.errorReason().c_str());
+    Serial.printf("Set ambient... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/ambient"), ambient) ? "ok" : fbdo.errorReason().c_str());
+    Serial.printf("Set charcoal heater... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/charcoal"), heater_char) ? "ok" : fbdo.errorReason().c_str());
+    Serial.printf("Set diesel heater... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/diesel"), heater_gas) ? "ok" : fbdo.errorReason().c_str());
+    Serial.printf("Set relay 1 current... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/relay1"),  digitalRead(relay1)) ? "ok" : fbdo.errorReason().c_str());
+    Serial.printf("Set relay 2 current... %s\n", Firebase.RTDB.setFloat(&fbdo, F("current/relay2"),  digitalRead(relay2)) ? "ok" : fbdo.errorReason().c_str());
 
-  // HISTORY every 10 minutes
-  long timestamp = timeClient.getEpochTime();
-  int currentMin = timeClient.getMinutes();
-  // Chante 10 for the min frequency you want your history to update
-  if (currentMin % 10 == 0 && currentMin != lastMin) {
-    lastMin = currentMin;
-    json.add("time", timestamp);
-    json.add("ambient", ambient);
-    json.add("charcoal", heater_char);
-    json.add("diesel", heater_gas);
-    Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, "/history/" + (String) timestamp, &json) ? "ok" : fbdo.errorReason().c_str());
+    // HISTORY every 10 minutes
+    long timestamp = timeClient.getEpochTime();
+    int currentMin = timeClient.getMinutes();
+    // Chante 10 for the min frequency you want your history to update
+    if (currentMin % 10 == 0 && currentMin != lastMin) {
+      lastMin = currentMin;
+      json.add("time", timestamp);
+      json.add("ambient", ambient);
+      json.add("charcoal", heater_char);
+      json.add("diesel", heater_gas);
+      Serial.printf("Update json... %s\n\n", Firebase.RTDB.updateNode(&fbdo, "/history/" + (String) timestamp, &json) ? "ok" : fbdo.errorReason().c_str());
+    }
   }
 
   delay(10000);
+}
+
+
+void networkConnection()
+{
+  // Reset the network connection
+  WiFi.disconnect();
+
+  WiFi.begin( SECRET_SSID, SECRET_PASS);
+  Serial.print("Connecting to Wi-Fi");
+  unsigned long ms = millis();
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(300);
+    if (millis() - ms >= 5000)
+    {
+      Serial.println(" failed!");
+      return;
+    }
+  }
+  Serial.println();
+  Serial_Printf("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+}
+
+// Define the callback function to handle server status acknowledgement
+void networkStatusRequestCallback()
+{
+  // Set the network status
+  fbdo.setNetworkStatus(WiFi.status() == WL_CONNECTED);
+}
+
+// Define the callback function to handle server connection
+void tcpConnectionRequestCallback(const char *host, int port)
+{
+
+  // You may need to set the system timestamp to use for
+  // auth token expiration checking.
+
+  // Firebase.setSystemTime(WiFi.getTime());
+
+  Serial.print("Connecting to server via external Client... ");
+  //if (!client.connect(host, port))
+  //{
+    //Serial.println("failed.");
+    //return;
+  //}
+  //Serial.println("success.");
 }
