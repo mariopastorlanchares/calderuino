@@ -124,7 +124,7 @@ void loop() {
   // SOUND
   // Ambient sound
   float ambientReading = analogRead(LM35); //Analog pin reading output voltage by Lm35
-  ambient = ambientReading * 0.259; //Finding the true centigrate/celsius temperature
+  ambient = ambientReading * 0.3; //Finding the true centigrate/celsius temperature
   Serial.print("AMBIENT TEMP = ");
   Serial.println(ambient); //Print centigrade temperature on Serial Monitor
 
